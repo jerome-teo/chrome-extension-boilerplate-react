@@ -1,15 +1,36 @@
 // import React from 'react';
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Box, TextField, Button, List, ListItem, Typography } from "@mui/material";
 import logo from '../../assets/img/logo.svg';
 import Greetings from '../../containers/Greetings/Greetings';
 import './Popup.css';
 
 const Popup = () => {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    // Check login state when the popup opens
+    chrome.storage.sync.get(['token'], (result) => {
+      if (result.token) {
+        setIsLoggedIn(true);
+      } else {
+        setIsLoggedIn(false);
+      }
+    });
+  }, []);
+
+  // const handleLogin = () => {
+  //   // Redirect to your backend login URL
+  //   const loginUrl = 'http://localhost:4500/api/v1/auth/google';
+  //   window.open(loginUrl, '_blank');
+  // };
+
+
   const [query, setQuery] = useState("");
   const [emails, setEmails] = useState([]);
 
   const handleSearch = () => {
+
     // Dummy email search logic for now
     const mockEmails = [
       { id: 1, subject: "Rejection from Company AAA", content: "We regret to inform you..." },
@@ -26,22 +47,7 @@ const Popup = () => {
     setEmails(filteredEmails);
   };
   return (
-    // <div className="App">
-    //   <header className="App-header">
-    //     <img src={logo} className="App-logo" alt="logo" />
-    //     <p>
-    //       Edit <code>src/pages/Popup/Popup.jsx</code> and save to reload.
-    //     </p>
-    //     <a
-    //       className="App-link"
-    //       href="https://reactjs.org"
-    //       target="_blank"
-    //       rel="noopener noreferrer"
-    //     >
-    //       Learn React!
-    //     </a>
-    //   </header>
-    // </div>
+
     <Box
       sx={{
         width: "100%",
