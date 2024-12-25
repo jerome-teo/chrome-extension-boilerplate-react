@@ -2,6 +2,15 @@
   "manifest_version": 3,
   "name": "GIST",
   "description": "A chrome extension that allows users to intelligently search for their received emails using natural language queries rather than specific keywords.",
+  "permissions": [
+    "storage",
+    "identity",
+    "identity.email",
+    "tabs"
+  ],
+  "host_permissions": [
+    "http://localhost:4500/*"
+  ],
   "options_page": "options.html",
   "background": {
     "service_worker": "background.bundle.js"
