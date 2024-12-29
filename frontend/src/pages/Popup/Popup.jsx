@@ -1,39 +1,64 @@
 import React, { useState, useEffect } from "react";
 import { Box, TextField, Button, List, ListItem, Typography } from "@mui/material";
+import axios from 'axios';
 import './Popup.css';
+
 
 const Popup = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState({});
   const [query, setQuery] = useState("");
   const [emails, setEmails] = useState([]);
 
+  // useEffect(() => {
+  //   // Check authentication by calling the backend
+  //   axios.get('http://localhost:4500/api/v1/auth/me', { withCredentials: true })
+  //     .then((response) => {
+  //       if (response.status === 200 && response.data && response.data._id) {
+  //         setIsAuthenticated(true);
+  //         setUser(response.data);
+  //       }
+  //     })
+  //     .catch((error) => {
+  //       console.error('Error during authentication check:', error);
+  //     });
+  // }, []);
   useEffect(() => {
-    // Check authentication by calling the backend
-    fetch('http://localhost:4500/api/v1/auth/me', {
-      method: 'GET',
-      credentials: 'include', // Include cookies if using sessions
-    })
-      .then((response) => {
-        if (!response.ok) {
-          console.error(`HTTP error: ${response.status} ${response.statusText}`);
-          throw new Error(`HTTP error: ${response.status}`);
-        }
-        console.log("RESPONSE1");
-        console.log(response);
-        console.log("RESPONSE2");
-        return response.json();
-      })
-      .then((data) => {
-        if (data && data._id) {
-          setIsAuthenticated(true);
-          setUser(data);
-        }
-      })
-      .catch((error) => {
-        console.error('Error:', error);
-      });
+    // console.log("HO");
+
+    // console.log(process.env.REACT_APP_CLIENT_ID);
+    chrome.storage.local.get(['accessToken'], (result) => {
+      if (result.accessToken) {
+        console.log('Access token retrieved:', result.accessToken);
+
+        // Optionally validate token with backend
+        axios
+          .get('http://localhost:4500/api/v1/auth/me', {
+            headers: { Authorization: `Bearer ${result.accessToken}` },
+            withCredentials: true,
+          })
+          .then((response) => {
+            console.log(response);
+
+            if (response.data) {
+              console.log("HI");
+              console.log(response.data);
+
+              setIsAuthenticated(true);
+              setUser(response.data);
+            }
+          })
+          .catch((error) => {
+            console.error('Error validating token:', error);
+            handleLogout(); // Clear token if invalid
+          });
+      } else {
+        console.log('No access token found, redirecting to login...');
+        setIsAuthenticated(false);
+      }
+    });
   }, []);
+
 
   const handleSearch = () => {
     // Dummy email search logic for now
@@ -52,49 +77,89 @@ const Popup = () => {
     setEmails(filteredEmails);
   };
 
+  // const handleLogout = () => {
+  //   // Call the backend to log out the user
+  //   axios.get('http://localhost:4500/api/v1/auth/logout', { withCredentials: true })
+  //     .then((response) => {
+  //       if (response.status === 200) {
+  //         setIsAuthenticated(false);
+  //         setUser(null);
+  //         window.location.reload();
+  //       } else {
+  //         console.error('Failed to log out:', response.data);
+  //       }
+  //     })
+  //     .catch((error) => console.error('Error logging out:', error));
+  // };
   const handleLogout = () => {
-    // Call the backend to log out the user
-    fetch('http://localhost:4500/api/v1/auth/logout', {
-      method: 'GET',
-      credentials: 'include', // Ensure cookies are included
-    })
+    axios
+      .get('http://localhost:4500/api/v1/auth/logout', { withCredentials: true })
       .then((response) => {
-        if (response.ok) {
+        if (response.status === 200 && response.data.success) {
+          console.log(response.data.message); // "Logged out successfully"
           setIsAuthenticated(false);
-          setUser(null);
-          window.location.reload();
+          setUser({});
+          chrome.storage.local.remove(['accessToken'], () => {
+            console.log('Access token cleared from chrome.storage');
+          });
         } else {
-          console.error('Failed to log out');
+          console.error('Failed to log out:', response.data.message);
         }
       })
-      .catch((error) => console.error('Error logging out:', error));
+      .catch((error) => {
+        console.error('Error logging out:', error);
+      });
   };
 
-  // const handleLogin = () => {
-  //   // Redirect to the backend OAuth login URL
-  //   window.location.href = 'http://localhost:4500/api/v1/auth/google';
-  // };
 
   const handleLogin = () => {
-    const redirectUri = chrome.identity.getRedirectURL('oauth2'); // Your redirect URI
-    const authUrl = `http://localhost:4500/api/v1/auth/google?redirect_uri=${redirectUri}`;
-
+    const redirectUri = chrome.identity.getRedirectURL('oauth2');
+    const clientId = '1094002364015-2o0v8cfoo2vpav356nae8ekbmeq0h3c7.apps.googleusercontent.com';
+    const scope = 'email profile';
+    const authUrl = `https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`;
+    console.log("HI");
     chrome.identity.launchWebAuthFlow(
       {
         url: authUrl,
-        interactive: true, // Opens an interactive login window
+        interactive: true, // Opens a popup for user interaction
       },
       (responseUrl) => {
-        // Process the OAuth response
         if (responseUrl) {
-          console.log('User authenticated:', responseUrl);
-          setIsAuthenticated(true); // Update state
-          window.location.href = "popup.html";
-          chrome.runtime.reload();
-          // chrome.runtime.sendMessage({ action: 'reopen_popup' });
-          // Optionally refresh the popup or fetch the user's data
+          console.log('OAuth Flow Completed:', responseUrl);
+
+          // Extract the authorization code from the response URL
+          const urlParams = new URLSearchParams(new URL(responseUrl).search);
+          const authCode = urlParams.get('code');
+
+          if (authCode) {
+            // Send the authorization code to the backend
+            axios.post('http://localhost:4500/api/v1/auth/exchange', { code: authCode }, { withCredentials: true })
+              .then((response) => {
+                console.log("resp");
+                console.log(response);
+
+                if (response.data.success) {
+                  console.log('User authenticated successfully:', response.data);
+                  // setIsAuthenticated(true);
+                  // setUser(response.data);
+                  chrome.storage.local.set({ accessToken: response.data.access_token }, () => {
+                    console.log('Access token saved in chrome.storage');
+                    console.log(response.data.access_token);
+                    setIsAuthenticated(true);
+                    setUser(response.data.user);
+                  });
+                } else {
+                  console.error('Authentication failed:', response.data.message);
+                }
+              })
+              .catch((error) => {
+                console.error('Error sending code to backend:', error);
+              });
+          } else {
+            console.error('Authorization code not found in response URL.');
+          }
         } else {
-          console.error('Login failed');
+          console.error('Login failed or was canceled.');
         }
       }
     );

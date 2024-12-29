@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GIST",
-  "description": "A chrome extension that allows users to intelligently search for their received emails using natural language queries rather than specific keywords.",
+  "description": "Gmail Intelligent Search Tool: A Chrome extension that allows users to retrieve their received emails using natural language queries rather than specific keywords.",
   "permissions": [
     "storage",
     "identity",
@@ -18,9 +18,6 @@
   "action": {
     "default_popup": "popup.html",
     "default_icon": "icon-34.png"
-  },
-  "chrome_url_overrides": {
-    "newtab": "newtab.html"
   },
   "icons": {
     "128": "icon-128.png"
